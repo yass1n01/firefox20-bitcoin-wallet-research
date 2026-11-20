@@ -102,10 +102,11 @@ def seed_int(x):
     if pptr >= 256:
         pptr -= 256
 
-seed_int(t0); seed_int(sx); seed_int(sy)
-seed_int(m_st); seed_int(m_prod)
-F = t0 + seed_limit * 20 + dj
-seed_int(F); seed_int(F); seed_int(F + intra)
+seed_int(t0); seed_int(sx); seed_int(sy)      # page load: seedTime + screenX + screenY
+seed_int(m_st); seed_int(m_prod)              # one mouse event: seedTime + clientX*clientY
+F = t0 + seed_limit * 20 + dj                 # forceGenerate timestamp (seedLimit*20 + jitter)
+seed_int(F); seed_int(F)                      # forceGenerate: two seedTime(F) calls
+seed_int(F + intra)                           # getByte() first call: one seedTime ~1-2 ms later, then ArcFour
 
 S = list(range(256))
 j = 0
@@ -122,7 +123,7 @@ for _ in range(33):
 
 raw = int.from_bytes(bytes(rc4[1:33]), 'big')
 key = (raw % (N - 1)) + 1
-kb = key.to_bytes(32, 'big').lstrip(b'\x00') or b'\x00'
+kb = key.to_bytes(32, 'big')   # fixed 32-byte width; leading zero bytes are KEPT (WIF needs them)
 wif = b58check(b'\x80' + kb)
 
 print("recomputed WIF =", wif)

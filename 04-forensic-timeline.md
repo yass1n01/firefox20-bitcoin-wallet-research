@@ -72,8 +72,8 @@ scoped to the tested setup.
 This case study demonstrates both sides of the coin:
 
 1. How much can be reconstructed from ordinary system artifacts, and
-2. Why the single unrecoverable value — the ASLR-randomized pointer term in the seed — is
-   the hard boundary of recovery.
+2. Why the one value not recoverable from the available artifacts — the ASLR-randomized
+   pointer term in the seed — was the boundary of recovery in this experiment.
 
 The wallet in this session belongs to the researcher and is used here solely as a controlled
 case study. Its identifier is intentionally not published.

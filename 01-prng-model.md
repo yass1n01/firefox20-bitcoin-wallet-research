@@ -57,14 +57,17 @@ rngState = (PRMJ_Now() / 1000) ^ (context pointer values)
 > positive of a loose match test (the state was compared against any timestamp in a wide
 > window), not the true seed. The corrected, source-verified model is the one above.
 
-## 3. Internal consumption K
+## 3. Internal consumption K (not independently measured)
 
-Before the first page script executes, the browser itself consumes a roughly constant number
-of doubles (UI, chrome, extensions): **K ≈ 600–750** in the tested profile (633 measured
-directly in the verification session). This is a measured property of the browser's
-pre-page PRNG usage — needed only to *forward-model* the PRNG state at page load from some
-earlier known state, and irrelevant to recovering the seed (which is unrecoverable for a
-different reason: the pointer term in Section 2).
+Before the first page script executes, the browser itself consumes some number of
+`Math.random()` outputs (UI, chrome, extensions). This work did **not** measure that number
+independently: an earlier draft reported K = 633, but that figure was derived from the
+discredited seed walk-back (Section 2) and has been removed.
+
+The reproduction in file 08 does **not** use K at all — it starts from the recovered state
+S0 (see file 03), so K is irrelevant to the verified result. K would matter only for
+forward-modeling the state from a known seed, which is not possible here because the seed
+contains the pointer term (Section 2).
 
 ## 4. Consequences
 

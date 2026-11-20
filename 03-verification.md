@@ -18,8 +18,8 @@ A small instrumentation layer (first script in `<head>`) recorded:
 2. Every subsequent `seedTime()` / `seedInt()` call (value + position)
 3. The generated address and WIF
 
-The browser's own pre-page consumption (K) was **not** visible to the page and had to be
-recovered separately (see below).
+The browser's own pre-page consumption (K) was **not** visible to the page; it is **not
+needed** for the reproduction below, which starts from the recovered state S0 (no seed, no K).
 
 ## State recovery
 
@@ -49,7 +49,7 @@ browser's original seed.
 
 ## End-to-end replay
 
-With (seed, K, t0, screen position, the logged event sequence) the full chain was recomputed:
+With (S0, t0, screen position, the logged event sequence) the full chain was recomputed:
 
 ```
 pool → XORs → ArcFour → 33 bytes → key = (raw mod (N−1)) + 1 → WIF
@@ -66,7 +66,6 @@ Browser            : Firefox 20.0 (X11; Linux x86_64)
 Page               : bitaddress.org v2.4 (local file)
 Page-load time t0  : 1795157974750 ms  (Date.now at first Math.random call)
 Recovered state S0 : 0x75736c04abbb     (from the first four captured doubles)
-Internal K         : 633 doubles consumed before the page (measured; not used in the replay)
 Window position    : screenX = 70, screenY = 27
 Timer jitter dj    : 21 ms
 Mouse (1 event)    : seedTime = 1795157974788, product = 157628

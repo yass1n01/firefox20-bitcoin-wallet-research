@@ -53,26 +53,31 @@ wallet generation) but are technically distinct paths.
 
 ## Step 5 — forceGenerate (auto-generation without mouse)
 
-After `seedLimit × 20` ms, if the mouse entropy quota was not met:
+After `seedLimit × 20` ms, if the mouse entropy quota was not met, the auto-generate timer
+fires and XORs the timestamp twice:
 
 ```
-F  = t0 + seedLimit*20 + jitter        (jitter ≈ system timer granularity)
-F3 = F + 1..2 ms
+F = t0 + seedLimit*20 + jitter        (jitter ≈ system timer granularity)
 
 seedTime(F):  pool[12..15] ^= F      (no-mouse layout)
 seedTime(F):  pool[16..19] ^= F
-seedTime(F3): pool[20..23] ^= F3
 ```
 
-## Step 6 — First getByte: ArcFour + pool wipe
+## Step 6 — First getByte: one more seedTime, then ArcFour + pool wipe
+
+The first `getByte()` re-seeds once (its own `Date.now()`, ~1–2 ms later), then builds the
+ArcFour state and wipes the pool:
 
 ```
 getByte() first call:
-    seedTime()                    → one more Date.now() XOR at current pptr
-    state = ArcFour(pool)         → RC4 KSA over the 256-byte pool
-    pool[i] = 0 for all i         → THE POOL IS WIPED after use
+    seedTime(F3):   pool[20..23] ^= F3   (F3 = F + 1..2 ms)
+    state = ArcFour(pool)                → RC4 KSA over the 256-byte pool
+    pool[i] = 0 for all i                → THE POOL IS WIPED after use
     33 bytes from RC4 PRGA
 ```
+
+So the total after the mouse is **three** seedTime XORs (F, F, F3) — two from forceGenerate
+and one from getByte — matching the reproduction in file 08.
 
 (Post-generation captures therefore show a zeroed pool re-XORed by later mouse events — a
 confusing but correct observation.)

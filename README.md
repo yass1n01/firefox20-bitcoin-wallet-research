@@ -12,12 +12,12 @@ This repository documents an independent, empirically verified reproduction of a
 
 1. Firefox 20.0's `Math.random()` is a Java-style LCG whose state is seeded **per JSContext** as `(PRMJ_Now()/1000) ^ (context pointers)` — a coarse millisecond clock XORed with ASLR-randomized addresses — **not** at page load, and **not** at wallet generation time.
 2. The full bitaddress v2.4 wallet derivation chain was reconstructed and verified **end-to-end**: a test wallet was regenerated from raw PRNG outputs with an **exact private-key (WIF) match**.
-3. The browser consumes a measurable, roughly constant number of PRNG outputs (K ≈ 600–750 doubles) before the first page script runs.
+3. The full PRNG state is recoverable from four captured `Math.random()` doubles (2^21 brute force), and the wallet is re-derived from that state alone — no browser seed needed.
 4. A complete forensic reconstruction of a real generation session (VM boot logs, file timestamps, user notes) shows that the seed's **ASLR-randomized pointer term** is not recorded by any system artifact, making post-hoc recovery of undocumented sessions computationally infeasible.
 
 **Scope Limitations:**
 - Only Firefox 20.0 on Linux x86_64 was tested (user-agent `rv:20.0`); the build's `jsmath.cpp` was retrieved from the Mozilla archive and its per-context seeding was checked (file 01).
-- `K` (internal PRNG consumption) is profile-dependent: K = 633 was measured directly; K ≈ 600–750 is an estimate for a fresh session.
+- The browser's pre-page PRNG consumption (`K`) was **not** independently measured; an earlier K = 633 figure was derived from a discredited seed walk-back and has been removed (file 01).
 - No claim is made about other Firefox versions (21–44, 45+), which may seed differently.
 - GPU throughput figures are measured on a single NVIDIA RTX 4070 Super (see file 05).
 

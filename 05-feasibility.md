@@ -11,15 +11,16 @@ seed = (PRMJ_Now()/1000) ^ (context pointers)     — see file 01
 | Component | Uncertainty |
 |---|---|
 | Millisecond timestamp | coarse (~10^3 per second), bounded to minutes by session evidence |
-| Context pointer(s) (ASLR) | **~30+ bits of per-launch randomness, not recorded anywhere** |
-| Internal consumption K | ~600–750 for a fresh session, unbounded in general |
+| Context pointer(s) (ASLR) | per-launch pointer entropy (typically tens of bits on x86_64 — **not measured in this environment**) |
+| Internal consumption K | not independently measured in this work; irrelevant once the state is captured |
 | Page-load time | bounded by `seedLimit × 20` ≈ 1–6 s after load |
 | Timer jitter | quantized by system timer resolution (2 ms in the test VM) |
 
-The seed is **not a function of time alone**: the ASLR pointer term adds ~30+ bits of
-per-launch entropy that cannot be enumerated from any timestamp, however precise. An
-attacker without a captured PRNG state faces an unrecoverable pointer space, not a finite
-timestamp window — so a "µs × K" scan (an earlier, incorrect framing) does not apply.
+The seed is **not a function of time alone**: it includes ASLR-randomized pointer values
+that a timestamp, however precise, does not determine. In this experiment the artifacts
+available were **not sufficient** to recover those pointer values; whether another
+environment leaves them recoverable (memory dump, crash dump) is an open question. A
+"µs × K" scan (an earlier, incorrect framing) does not apply.
 
 ### Model B — Chrome-era MWC (verified separately)
 
@@ -58,7 +59,7 @@ factor (~1.5–2×), not the exponent.
 |---|---|
 | Captured PRNG state / doubles (Firefox model) | state recovery + replay = exact WIF (minutes, CPU) |
 | Known generation time ± seconds (Chrome model) | MWC state scan completes in hours |
-| No captured state, no session evidence (tested setup) | Not achieved — the seed's ASLR pointer term is unrecoverable |
+| No captured state, no session evidence (tested setup) | Not achieved — the available artifacts were insufficient to recover the seed's pointer term |
 
 ## Measurement conditions (GPU)
 
@@ -78,8 +79,8 @@ specific card — not as universal figures.
 ## Scope note
 
 The infeasibility estimates above are based on measurements from **one controlled
-environment** (a single virtual machine, Firefox 20.0 on Linux x86_64, K ≈ 600–750,
-a ~10-minute launch window, the GPU listed above). They should be read as
+environment** (a single virtual machine, Firefox 20.0 on Linux x86_64, K not
+independently measured, a ~10-minute launch window, the GPU listed above). They should be read as
 *"infeasible under these conditions"* — not as a universal impossibility proof for
 every environment, browser build, or future hardware. The information-theoretic
 boundary (Section "The information-theoretic boundary") is the only claim that is
