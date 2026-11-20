@@ -2,11 +2,14 @@
 
 Technical pitfalls discovered during this research, in the order they caused damage:
 
-## 1. The seed is the browser launch, not the wallet time
+## 1. The seed is not a timestamp — and not the wallet time
 
-The single most expensive wrong assumption. The thread-local RNG is seeded once at browser
-launch (microsecond clock) and shared across the whole browsing session. Any model that
-seeds from the wallet's on-chain time searches an empty space.
+Two traps in one. First, the wallet's on-chain time is **not** the seed. Second, the seed is
+**not a pure timestamp at all**: it is `(PRMJ_Now()/1000) ^ (context pointers)` — a coarse
+millisecond clock XORed with ASLR-randomized addresses (file 01). An earlier draft's
+"browser-launch microsecond" model was wrong; a walk-back "match" against a plausible
+timestamp turned out to be a false positive of a loose test. Any model that seeds from time
+alone searches an empty space.
 
 ## 2. `lo` extraction: mask, don't shift
 
@@ -49,10 +52,12 @@ Jitter parameters are therefore quantized — a useful reduction, easily missed.
 The 256-bit raw value from the RNG is **not** the private key; the key is
 `(raw mod (N−1)) + 1`. Skipping this step produces keys that are simply wrong.
 
-## 9. One missing microsecond ended this particular game
+## 9. The pointer term, not the microsecond, is the hard boundary
 
-The most important lesson: in the tested setup, the session's launch microsecond was
-recorded nowhere we looked (boot logs, file mtimes, notes). Those forensic sources
-reconstructed everything else — and the search space remained beyond practical GPU time
-without that single value. Whether other environments leave such a trace is an open
-question, not a settled fact.
+The most important lesson: in the tested setup, the seed's ASLR-randomized pointer term
+(file 01) is recorded nowhere we looked (boot logs, file mtimes, notes) and is re-rolled on
+every launch. The forensic sources reconstructed everything else; the pointer term is what
+kept the search beyond practical reach. Capturing the page's own `Math.random()` output
+(which we did in the verification session) is what makes recovery possible — without it, no
+timestamp precision helps. Whether other environments leave a recoverable trace (memory
+dump, crash dump) is an open question, not a settled fact.

@@ -36,11 +36,16 @@ is a subtle, costly error.
 The full state was recovered by brute-forcing the 21 unknown low bits of `S_2`
 (`lo_0` fixes the top 27) and validating against `hi_1`, `lo_1` — 2^21 candidates, seconds of work.
 
-## Seed recovery (browser-launch microsecond)
+## The PRNG state (S0) is recovered from the captured doubles — not from a timestamp
 
-The LCG is invertible mod 2^48. Walking the recovered state backwards step by step and
-comparing `state ^ 0x5DEECE66D` against plausible launch microseconds yielded the exact seed
-after 1266 / 1485 steps in two independent sessions (within a 24 h window).
+The end-to-end replay below needs only **S0**, the LCG state at the page's first captured
+double, obtained directly from the 2^21 brute force above. It does **not** need the
+browser's original seed.
+
+> An earlier draft attempted to walk S0 backwards to a "browser-launch microsecond" seed.
+> That step was removed after peer review: the true seed (file 01) is
+> `(PRMJ_Now()/1000) ^ context-pointers`, and the walk-back "match" was a false positive of
+> a loose test. The verified result below depends only on S0.
 
 ## End-to-end replay
 
@@ -60,8 +65,8 @@ For full reproducibility, the complete input/output of the verification session:
 Browser            : Firefox 20.0 (X11; Linux x86_64)
 Page               : bitaddress.org v2.4 (local file)
 Page-load time t0  : 1795157974750 ms  (Date.now at first Math.random call)
-Browser-launch µs  : 1795111719600580  (recovered by LCG walk-back)
-Internal K         : 633 doubles consumed before the page (1266 LCG steps)
+Recovered state S0 : 0x75736c04abbb     (from the first four captured doubles)
+Internal K         : 633 doubles consumed before the page (measured; not used in the replay)
 Window position    : screenX = 70, screenY = 27
 Timer jitter dj    : 21 ms
 Mouse (1 event)    : seedTime = 1795157974788, product = 157628

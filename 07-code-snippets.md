@@ -36,7 +36,7 @@ for beta in range(1 << 21):
     break   # S2 found — the full state follows
 ```
 
-## 3. LCG inversion (seed walk-back)
+## 3. LCG inversion (state stepping, not seed recovery)
 
 ```python
 MINV = pow(MULT, -1, 1 << 48)            # the multiplier is invertible mod 2^48
@@ -45,9 +45,11 @@ def step_back(state):
     return ((state - ADD) * MINV) & MASK
 ```
 
-Walking the recovered state backwards until `state ^ MULT` matched a plausible
-browser-launch microsecond yielded the exact seed after 1266 / 1485 steps in two
-independent sessions (details in file 01).
+The multiplier's inverse mod 2^48 is used **within** the state recovery of file 08 (to step
+from S2 back to S0). It is *not* used to recover the seed: the seed is
+`(PRMJ_Now()/1000) ^ (context pointers)` (file 01) and contains an ASLR pointer term that
+no backward walk can reconstruct. An earlier draft's "walk back to a launch microsecond"
+was a false positive and has been removed.
 
 ## 4. Pool fill (floor == shift — both are equivalent)
 

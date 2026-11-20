@@ -22,49 +22,55 @@ d = ((S1 >> 22) << 27 | (S2 >> 21)) / 2^53
 where `S1` and `S2` are consecutive LCG states. The 53-bit mantissa is therefore
 `(S1 >> 22) << 27 | (S2 >> 21)` — **not** a simple shift of a single state.
 
-## 1a. Tested build and version caveat
+## 1a. Build under test and source-verified seeding
 
 - **Build under test:** Firefox 20.0, user-agent
   `Mozilla/5.0 (X11; Linux x86_64; rv:20.0) Gecko/20100101 Firefox/20.0`.
-- **Known version history (Mozilla):** before ~2009 the RNG was seeded per-context with
-  `(PRMJ_Now()/1000) ^ context-pointers`; in 2009 it moved to thread-local storage; in
-  Firefox 21 it moved again to compartment scope. The model below matches the **2009+
-  thread-local** era.
-- **Caveat:** the seeding formula is inferred **empirically** (see Section 3) and is
-  consistent with the thread-local source, but it was **not** re-verified against the
-  exact jsmath.cpp of this build. Readers should pin the exact build before treating the
-  formula as source-confirmed.
+- **Source checked:** the build's `js/src/jsmath.cpp` (retrieved from the Mozilla archive)
+  seeds the RNG state **per JSContext** with:
 
-## 2. Seeding: at browser launch, not page load
+      rngState = (PRMJ_Now() / 1000) ^ (context pointer values)
 
-The decisive empirical finding:
+  where `PRMJ_Now()/1000` is the epoch time in **milliseconds** and the pointer term(s)
+  are ASLR-randomized virtual addresses (e.g. the JSContext pointer) that differ on every
+  process launch. See Section 2.
+
+## 2. Seeding: milliseconds XOR context pointers — not a pure timestamp
+
+The RNG state lives in the **JSContext** and is seeded once with:
 
 ```
-rngState = (PRMJ_Now()_µs ^ 0x5DEECE66D) & MASK
+rngState = (PRMJ_Now() / 1000) ^ (context pointer values)
 ```
 
-- `PRMJ_Now()` returns microseconds since the Unix epoch.
-- The RNG is **thread-local** (shared by all pages/scripts on the main thread).
-- It is seeded **once, when the browser thread starts** — hours before any wallet page loads.
+- `PRMJ_Now()/1000` is the epoch time in **milliseconds** (coarse — roughly 10^3 values
+  per second), **not** microseconds.
+- The pointer term(s) are **ASLR-randomized virtual addresses** that are re-rolled on every
+  process launch and are unpredictable from any timestamp.
+- Because of the pointer term, the seed is **not** a function of the launch time alone, and
+  it cannot be recovered by walking the LCG backwards to a timestamp.
 
-### Measured evidence (two independent sessions)
-
-| Session | Browser-start seed recovered | Distance to page load |
-|---|---|---|
-| A | walk-back of **1485** LCG steps (742.5 doubles consumed) | 6.8 hours |
-| B | walk-back of **1266** LCG steps (633 doubles consumed) | 12.8 hours |
-
-The seed was recovered by inverting the LCG (the multiplier has an inverse mod 2^48) and
-walking the state backwards until it matched a plausible launch microsecond.
+> **Correction to an earlier draft.** A previous version of this document claimed the seed
+> was the browser-launch microsecond (`PRMJ_Now()_µs ^ 0x5DEECE66D`), "recovered" by an
+> LCG walk-back that appeared to land on a plausible timestamp after 1266/1485 steps. Peer
+> review of the actual jsmath.cpp showed that claim was wrong: the walk-back was a false
+> positive of a loose match test (the state was compared against any timestamp in a wide
+> window), not the true seed. The corrected, source-verified model is the one above.
 
 ## 3. Internal consumption K
 
 Before the first page script executes, the browser itself consumes a roughly constant number
-of doubles (UI, chrome, extensions): **K ≈ 600–750** in the tested profile. This consumption
-is the reason the page's first `Math.random()` call does **not** start from the seed directly.
+of doubles (UI, chrome, extensions): **K ≈ 600–750** in the tested profile (633 measured
+directly in the verification session). This is a measured property of the browser's
+pre-page PRNG usage — needed only to *forward-model* the PRNG state at page load from some
+earlier known state, and irrelevant to recovering the seed (which is unrecoverable for a
+different reason: the pointer term in Section 2).
 
 ## 4. Consequences
 
 1. The wallet-generation time (observable on-chain) is **not** the seed.
-2. The seed is the browser-launch microsecond — a value we found recorded in none of the examined system artifacts (see file 04 for which sources were checked).
-3. Any recovery attempt must scan a two-dimensional space: launch microsecond × K.
+2. The seed contains **ASLR-randomized context pointers** that are recorded in none of the
+   examined system artifacts (see file 04 for which sources were checked) — so the seed
+   cannot be reconstructed from a timestamp, however precise.
+3. End-to-end recovery is therefore driven by a **captured PRNG state or captured doubles**
+   (see files 02 and 03), not by a timestamp scan.

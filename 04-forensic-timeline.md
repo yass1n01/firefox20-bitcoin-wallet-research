@@ -43,30 +43,37 @@ To be precise about evidential strength, the timeline above mixes two kinds of i
 | Firefox launched 11:12–11:21 (9.5-min window) | **Inferred** | between login (measured) and observation (measured) |
 | Wallet generated 1–6 s after page load | **Inferred** | bitaddress auto-generation semantics |
 
-Only the launch **microsecond** — the value the seed actually needs — is unobserved, and
-the 9.5-minute window is itself an inference bounded by two measured anchors.
+Only the seed's **pointer term** (ASLR-randomized context addresses — file 01) is
+unobserved; the 9.5-minute launch window is itself an inference bounded by two measured
+anchors, but even a microsecond-exact launch time would not recover the seed.
 
 ## The decisive missing piece
 
-Everything about the session is now known **except** the exact microsecond Firefox was
-launched (between 11:12 and 11:21 — a 9.5-minute window).
+Everything about the session is now known **except** the seed's unpredictable term. The
+seed is `(PRMJ_Now()/1000) ^ (context pointers)` (file 01): the millisecond timestamp is
+coarse, and the context-pointer term is ASLR-randomized per launch and recorded in **none**
+of the examined artifacts.
 
 ```
-9.5 minutes = 570,000,000 possible launch microseconds
+9.5 minutes ≈ 570,000 possible launch milliseconds
+              … but this is irrelevant: the ASLR pointer term is not a function of time
 ```
 
 **In the artifacts examined** (wtmp — minute precision; the Firefox profile directory,
-which had been recreated later; bash history — untimestamped), **no record of the launch
-microsecond was found**. Other environments, browser versions, or forensic sources
-(e.g., audit logs, crash dumps, filesystem journaling) may behave differently — this
-conclusion is scoped to the tested setup.
+which had been recreated later; bash history — untimestamped), **no record of the seed's
+pointer term was found** — and none is expected, since ASLR re-randomizes it per launch.
+A memory dump or a capture of the page's own `Math.random()` outputs would bypass this, but
+no such artifact existed in this session. Other environments or forensic sources (audit
+logs, crash dumps, filesystem journaling) may behave differently — this conclusion is
+scoped to the tested setup.
 
 ## Conclusion
 
 This case study demonstrates both sides of the coin:
 
 1. How much can be reconstructed from ordinary system artifacts, and
-2. Why the single unrecorded value (launch microsecond) is the hard boundary of recovery.
+2. Why the single unrecoverable value — the ASLR-randomized pointer term in the seed — is
+   the hard boundary of recovery.
 
 The wallet in this session belongs to the researcher and is used here solely as a controlled
 case study. Its identifier is intentionally not published.

@@ -4,10 +4,14 @@ Complete end-to-end reproduction of the published test vector.
 
 Given only the raw captured Math.random() doubles and the published session
 parameters, this script:
-  1. recovers the LCG state (2^21 brute force over the low bits),
-  2. walks the state backwards to the browser-launch seed,
-  3. re-derives the pool, ArcFour keystream, private key and WIF,
-  4. asserts the WIF matches the published value.
+  1. recovers the LCG state S0 (2^21 brute force over the low bits),
+  2. re-derives the pool, ArcFour keystream, private key and WIF,
+  3. asserts the WIF matches the published value.
+
+The reproduction depends only on S0 — the LCG state at the page's first captured
+double — recovered directly from the doubles. It does NOT recover the browser's
+original seed; that seed is (PRMJ_Now()/1000) ^ (context pointers) (file 01) and
+is not needed here.
 
 Run:  python3 08-reproduce.py
 Expected output ends with:  MATCH: True
@@ -67,23 +71,7 @@ S1 = ((S2 - ADD) * MINV) & MASK
 S0 = ((S1 - ADD) * MINV) & MASK
 print("recovered state S0 =", hex(S0))
 
-# ---- 2. Walk back to the browser-launch seed ----
-t_us = t0 * 1000
-seed = steps = None
-s = S0
-for i in range(1, 2_000_000):
-    s = ((s - ADD) * MINV) & MASK
-    for k in range(8):
-        us = (s ^ MULT) + (k << 48)
-        if t_us - 24 * 3600 * 1_000_000 <= us <= t_us:
-            seed, steps = s, i
-            break
-    if seed:
-        break
-assert seed is not None, "seed walk-back failed"
-print(f"seed found after {steps} LCG steps; state = {hex(seed)}")
-
-# ---- 3. Re-derive the pool and WIF (forward) ----
+# ---- 2. Re-derive the pool and WIF (forward) ----
 state = S0
 pool = [0] * 256
 for i in range(128):

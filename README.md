@@ -10,13 +10,13 @@ This repository documents an independent, empirically verified reproduction of a
 
 **Core findings:**
 
-1. Firefox 20.0's `Math.random()` is a thread-local Java-style LCG seeded **at browser launch** with the microsecond clock: `state = (PRMJ_Now()_µs ^ 0x5DEECE66D) & ((1<<48)-1)` — **not** at page load, and **not** at wallet generation time.
+1. Firefox 20.0's `Math.random()` is a Java-style LCG whose state is seeded **per JSContext** as `(PRMJ_Now()/1000) ^ (context pointers)` — a coarse millisecond clock XORed with ASLR-randomized addresses — **not** at page load, and **not** at wallet generation time.
 2. The full bitaddress v2.4 wallet derivation chain was reconstructed and verified **end-to-end**: a test wallet was regenerated from raw PRNG outputs with an **exact private-key (WIF) match**.
 3. The browser consumes a measurable, roughly constant number of PRNG outputs (K ≈ 600–750 doubles) before the first page script runs.
-4. A complete forensic reconstruction of a real generation session (VM boot logs, file timestamps, user notes) shows that the **only** missing parameter — the browser-launch microsecond — is not recorded by any system artifact, making post-hoc recovery of undocumented sessions computationally infeasible.
+4. A complete forensic reconstruction of a real generation session (VM boot logs, file timestamps, user notes) shows that the seed's **ASLR-randomized pointer term** is not recorded by any system artifact, making post-hoc recovery of undocumented sessions computationally infeasible.
 
 **Scope Limitations:**
-- Only Firefox 20.0 on Linux x86_64 was tested (user-agent `rv:20.0`); the exact build's `jsmath.cpp` was not re-verified against the source tree.
+- Only Firefox 20.0 on Linux x86_64 was tested (user-agent `rv:20.0`); the build's `jsmath.cpp` was retrieved from the Mozilla archive and its per-context seeding was checked (file 01).
 - `K` (internal PRNG consumption) is profile-dependent: K = 633 was measured directly; K ≈ 600–750 is an estimate for a fresh session.
 - No claim is made about other Firefox versions (21–44, 45+), which may seed differently.
 - GPU throughput figures are measured on a single NVIDIA RTX 4070 Super (see file 05).
@@ -38,8 +38,8 @@ This repository documents an independent, empirically verified reproduction of a
 
 1. Clone the repository.
 2. Run the complete reproduction: `python3 08-reproduce.py`
-   — it recovers the LCG state from the published raw doubles, walks back to the
-   browser-launch seed, re-derives the key, and asserts the WIF matches.
+   — it recovers the LCG state S0 from the published raw doubles, re-derives the key from
+   S0, and asserts the WIF matches.
 3. For the step-by-step explanation, read [`07-code-snippets.md`](07-code-snippets.md)
    and the test vector in [`03-verification.md`](03-verification.md).
 4. Report any discrepancy as a GitHub issue.
@@ -48,7 +48,7 @@ This repository documents an independent, empirically verified reproduction of a
 
 | Resource | Requirement |
 |----------|-------------|
-| GPU | None required — state recovery and the seed walk-back are CPU-only (minutes of work). A Firefox 20 VM is only needed to reproduce the capture. |
+| GPU | None required — state recovery and replay are CPU-only (minutes of work). A Firefox 20 VM is only needed to reproduce the capture. |
 | RAM | 4 GB (Firefox 20 VM) |
 | Disk | 10 GB (VM + tooling) |
 | Time | Minutes for the core verification; a few hours for a full VM setup + capture |
@@ -84,7 +84,7 @@ This repository documents **facts and methodology**, consistent with responsible
 
 - Unciphered — "Randstorm: You Can't Patch a House of Cards" (2023)
 - [illbloom.org](https://illbloom.org) — CryptoJS MWC weakness research
-- Mozilla source: `js/src/jsmath.cpp` (thread-local RNG commit, 2009)
+- Mozilla source: `js/src/jsmath.cpp` (per-JSContext RNG seeding, Firefox 20.0)
 - Java `java.util.Random` specification (the LCG origin)
 - caniuse.com — `crypto.getRandomValues` browser support matrix
 

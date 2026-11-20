@@ -5,20 +5,21 @@
 ### Model A — Firefox 20 (documented here)
 
 ```
-search space = launch-µs window × K × page-load time × timer jitter
+seed = (PRMJ_Now()/1000) ^ (context pointers)     — see file 01
 ```
 
-| Parameter | Typical uncertainty |
+| Component | Uncertainty |
 |---|---|
-| Launch microsecond | **1,000,000 per second of session** (hours-long sessions in practice) |
+| Millisecond timestamp | coarse (~10^3 per second), bounded to minutes by session evidence |
+| Context pointer(s) (ASLR) | **~30+ bits of per-launch randomness, not recorded anywhere** |
 | Internal consumption K | ~600–750 for a fresh session, unbounded in general |
 | Page-load time | bounded by `seedLimit × 20` ≈ 1–6 s after load |
 | Timer jitter | quantized by system timer resolution (2 ms in the test VM) |
 
-A one-hour session window alone is `3.6 × 10^9` µs; multiplied by K and the timing
-dimensions, the space reaches `~10^17–10^18` candidates. At realistic GPU rates
-(≈ 3–5 M full derivations/s) this is **thousands of years** — even before considering
-mouse entropy, which is provably unrecoverable in general.
+The seed is **not a function of time alone**: the ASLR pointer term adds ~30+ bits of
+per-launch entropy that cannot be enumerated from any timestamp, however precise. An
+attacker without a captured PRNG state faces an unrecoverable pointer space, not a finite
+timestamp window — so a "µs × K" scan (an earlier, incorrect framing) does not apply.
 
 ### Model B — Chrome-era MWC (verified separately)
 
@@ -55,9 +56,9 @@ factor (~1.5–2×), not the exponent.
 
 | Condition | Result |
 |---|---|
-| Documented session (launch time ± seconds) | Firefox model recovers the wallet in minutes |
+| Captured PRNG state / doubles (Firefox model) | state recovery + replay = exact WIF (minutes, CPU) |
 | Known generation time ± seconds (Chrome model) | MWC state scan completes in hours |
-| No session evidence (tested setup) | Not achieved in this work — space exceeds practical GPU time |
+| No captured state, no session evidence (tested setup) | Not achieved — the seed's ASLR pointer term is unrecoverable |
 
 ## Measurement conditions (GPU)
 
@@ -87,7 +88,8 @@ independent of such conditions, as it follows directly from the hash sizes.
 ## Conclusion
 
 The weakness is real and fully characterized. In the tested environment its exploitation
-window is the **documented session**; whether other environments leave recoverable traces
-of the launch microsecond is an open question for further research. This is consistent
-with the original Randstorm disclosure: recovery targeted wallets whose creation context
-was known, not arbitrary historical addresses.
+window is the **captured PRNG state / documented session**; whether other environments
+leave recoverable traces of the seed (a memory dump, a captured `Math.random()` stream, or
+a crash dump) is an open question for further research. This is consistent with the
+original Randstorm disclosure: recovery targeted wallets whose creation context was known,
+not arbitrary historical addresses.
