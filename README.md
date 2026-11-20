@@ -1,0 +1,1 @@
+# firefox20-bitcoin-wallet-research
